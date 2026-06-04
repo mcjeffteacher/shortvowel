@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Reading Roll Quest - Arcade Edition</title>
+    <style>
+        /* --- 1. DESIGN VARIABLES & THEME --- */
+        :root {
+            --bg-pastel-pink: #fde2e4;
+            --panel-bg: rgba(255, 255, 255, 0.95);
+            --border-dark: #000000;
+            --text-main: #333333;
+            
+            --t1-color: #00b4d8;
+            --t1-glow: rgba(0, 180, 216, 0.4);
+            --t1-bg: rgba(0, 180, 216, 0.2);
+            
+            --t2-color: #d90429;
+            --t2-glow: rgba(217, 4, 41, 0.4);
+            --t2-bg: rgba(217, 4, 41, 0.15);
+            
+            --neutral-glow: #ffb703;
+            --font-family: 'Comic Sans MS', 'Chalkboard SE', 'Segoe UI', sans-serif;
+        }
+
+        /* --- 2. RESET & BASE LAYOUT --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            background-color: var(--bg-pastel-pink);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Decorative Background Spark Accents */
+        body::before, body::after {
+            content: "✳";
+            position: absolute;
+            font-size: clamp(3rem, 8vw, 6rem);
+            opacity: 0.6;
+            pointer-events: none;
+            z-index: 0;
+        }
+        body::before { top: 10%; left: 2%; color: #4ea8de; transform: rotate(15deg); }
+        body::after { bottom: 5%; right: 2%; color: #ff70a6; transform: rotate(-25deg); }
+
+        /* --- 3. CONTAINER OVERVIEW --- */
+        .game-wrapper {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            padding: 1rem;
+            gap: 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .game-header {
+            background: var(--panel-bg);
+            border-bottom: 4px solid var(--border-dark);
+            padding: 0.5rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            z-index: 2;
+        }
+
+        .game-title-container {
+            text-align: center;
+            flex: 1;
+        }
+
+        .game-title {
+            font-size: clamp(1.8rem, 4vw, 3.2rem);
+            font-weight: 900;
+            color: #ff70a6;
+            text-shadow: 2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000;
+            letter-spacing: 1px;
+            margin-bottom: -0.2rem;
+        }
+
+        .game-subtitle {
+            font-size: clamp(0.9rem, 1.8vw, 1.3rem);
+            font-weight: 700;
+            color: #000000;
+        }
+
+        /* --- 4. SCOREBOARD SYSTEMS --- */
+        .scoreboard-container {
+            display: flex;
+            gap: 1rem;
+            width: 280px;
+        }
+
+        .team-card {
+            flex: 1;
+            background: #ffffff;
+            border: 3px solid var(--border-dark);
+            border-radius: 16px;
+            padding: 0.4rem;
+            text-align: center;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+
+        .team-card.team-1 { border-color: var(--t1-color); }
+        .team-card.team-2 { border-color: var(--t2-color); }
+
+        .team-card.active {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px var(--active-glow);
+            background: var(--active-bg);
+        }
+        .team-card.team-1.active { --active-glow: var(--t1-glow); --active-bg: var(--t1-bg); }
+        .team-card.team-2.active { --active-glow: var(--t2-glow); --active-bg: var(--t2-bg); }
+
+        .team-name {
+            font-size: 0.9rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+        .team-1 .team-name { color: var(--t1-color); }
+        .team-2 .team-name { color: var(--t2-color); }
+
+        .team-score {
+            font-size: 1.8rem;
+            font-weight: 900;
+        }
+
+        .turn-indicator {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--border-dark);
+            color: #ffffff;
+            font-size: 0.65rem;
+            font-weight: 900;
+            padding: 2px 8px;
+            border-radius: 10px;
+            display: none;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .team-card.active .turn-indicator { display: block; }
+
+        /* --- 5. INTERACTIVE PHONICS GRID --- */
+        .main-content {
+            flex: 3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            gap: 0.5rem;
+            width: 100%;
+            height: 100%;
+            max-width: 110vh;
+            max-height: 88vh;
+            background: #ffffff;
+            border: 4px solid var(--border-dark);
+            border-radius: 16px;
+            padding: 0.6rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        /* Mode-based columns override dynamically */
+        .grid-container.mode-board2 {
+            grid-template-columns: repeat(8, 1fr);
+            max-width: 125vh;
+        }
+
+        .grid-box {
+            background: #ffffff;
+            border: 2px solid var(--border-dark);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.25rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .grid-box.dice-header-column {
+            background: #f8f9fa;
+            cursor: default;
+            pointer-events: none;
+            border-width: 3px;
+        }
+
+        .grid-box.trophy-column-cell {
+            background: #f8f9fa;
+            border-width: 3px;
+            cursor: pointer;
+        }
+
+        .grid-box:not(.dice-header-column):hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            background: #f1f5f9;
+        }
+
+        .grid-box-text {
+            font-size: clamp(0.9rem, 2.3vw, 1.6rem);
+            font-weight: 800;
+            text-align: center;
+            word-break: break-word;
+            color: #000000;
+            z-index: 2;
+        }
+
+        /* --- BOARD 1 STANDARD CLAIMS --- */
+        .grid-box.claimed-t1 {
+            background: var(--t1-bg);
+            border-color: var(--t1-color);
+            border-width: 4px;
+            animation: capturePulse 0.4s ease-out;
+        }
+        .grid-box.claimed-t1 .grid-box-text { color: var(--t1-color); text-shadow: 1px 1px 0px #000; }
+
+        .grid-box.claimed-t2 {
+            background: var(--t2-bg);
+            border-color: var(--t2-color);
+            border-width: 4px;
+            animation: capturePulse 0.4s ease-out;
+        }
+        .grid-box.claimed-t2 .grid-box-text { color: var(--t2-color); text-shadow: 1px 1px 0px #000; }
+
+        /* --- BOARD 2 SPLIT-BOX BACKGROUND GENERATORS --- */
+        .grid-box .split-bg-t1, .grid-box .split-bg-t2 {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: 50%;
+            z-index: 1;
+            display: none;
+            animation: capturePulse 0.3s ease-out;
+        }
+        .grid-box .split-bg-t1 {
+            left: 0;
+            background: var(--t1-bg);
+            border-right: 2px dashed var(--t1-color);
+        }
+        .grid-box .split-bg-t2 {
+            right: 0;
+            background: var(--t2-bg);
+            border-left: 2px dashed var(--t2-color);
+        }
+        .grid-box.has-t1 .split-bg-t1 { display: block; }
+        .grid-box.has-t2 .split-bg-t2 { display: block; }
+
+        .grid-box.has-t1:not(.has-t2) .grid-box-text { color: var(--t1-color); }
+        .grid-box.has-t2:not(.has-t1) .grid-box-text { color: var(--t2-color); }
+        .grid-box.has-t1.has-t2 .grid-box-text { color: #553c9a; text-shadow: 1px 1px 0px #fff; }
+
+        /* Trophy designs */
+        .trophy-svg-icon {
+            width: 70%;
+            height: 70%;
+            transition: transform 0.2s ease;
+        }
+        .grid-box.trophy-column-cell:hover .trophy-svg-icon {
+            transform: scale(1.15) rotate(5deg);
+        }
+        .grid-box.trophy-claimed-t1 { background: #e0f2fe; border-color: var(--t1-color); pointer-events: none;}
+        .grid-box.trophy-claimed-t2 { background: #ffe1e6; border-color: var(--t2-color); pointer-events: none;}
+
+        @keyframes capturePulse {
+            0% { transform: scale(0.9); }
+            50% { transform: scale(1.06); }
+            100% { transform: scale(1); }
+        }
+
+        /* --- 6. SIDE CONTROL UTILITY PANEL --- */
+        .side-panel {
+            flex: 0.8;
+            max-width: 240px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            justify-content: flex-start;
+            align-items: center;
+        }
+
+        .action-btn {
+            background: #ffffff;
+            border: 3px solid var(--border-dark);
+            border-radius: 16px;
+            color: #000000;
+            padding: 0.8rem 1rem;
+            font-size: 1rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 5px 0px var(--border-dark);
+            width: 100%;
+        }
+
+        .action-btn:active, .action-btn.active-btn {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0px var(--border-dark);
+        }
+
+        .btn-icon {
+            font-size: 1.4rem;
+        }
+
+        /* --- 7. OVERLAY POPUP WINDOWS (MODALS) --- */
+        .overlay-modal {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: #ffffff;
+            border: 4px solid var(--border-dark);
+            border-radius: 24px;
+            width: 92%;
+            max-width: 540px;
+            padding: 1.8rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            transform: translateY(20px);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-height: 92vh;
+            overflow-y: auto;
+        }
+
+        .overlay-modal.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            border-bottom: 3px solid var(--bg-pastel-pink);
+            padding-bottom: 0.6rem;
+        }
+
+        .modal-title {
+            font-size: 1.4rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #000;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 2rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* --- 8. CONFIGURATION / SETTINGS STYLES --- */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            font-weight: 800;
+            margin-bottom: 0.4rem;
+            color: #555;
+        }
+        .input-textarea {
+            width: 100%;
+            height: 120px;
+            background: #f8f9fa;
+            border: 3px solid var(--border-dark);
+            border-radius: 12px;
+            color: #000;
+            padding: 0.5rem;
+            font-family: monospace;
+            font-weight: bold;
+            resize: none;
+        }
+        .input-textarea:focus {
+            outline: none;
+            border-color: var(--t1-color);
+        }
+
+        /* --- CRITICAL OPENING MESSAGES DISPLAY ENGINE OVERHAUL --- */
+        .style-grid-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.2rem;
+            margin: 1.8rem 0 1rem;
+        }
+        
+        .style-card-option {
+            border: 3px solid var(--border-dark);
+            border-radius: 20px;
+            padding: 1.2rem 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #f9fafb;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            text-align: center;
+            box-shadow: 0 4px 0px var(--border-dark);
+        }
+        
+        .style-card-option:hover {
+            transform: translateY(-4px);
+            background: #ffffff;
+            box-shadow: 0 8px 0px var(--border-dark);
+        }
+        
+        .style-card-option h3 {
+            margin: 0.6rem 0 0.5rem;
+            font-size: 1.2rem;
+            font-weight: 900;
+            color: #111;
+        }
+        
+        .style-card-option p {
+            font-size: 0.85rem;
+            line-height: 1.4;
+            font-weight: 700;
+            color: #555;
+        }
+
+        .welcome-rules-card {
+            text-align: left;
+            padding: 0.5rem 0.2rem;
+        }
+        
+        .welcome-rules-list {
+            margin: 1.5rem 0;
+            list-style-type: none;
+        }
+        
+        .welcome-rules-list li {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            font-weight: 700;
+            margin-bottom: 1.2rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.8rem;
+            color: #2d3748;
+            background: #f8fafc;
+            padding: 0.8rem 1rem;
+            border: 2px solid #edf2f7;
+            border-radius: 12px;
+        }
+        
+        .welcome-rules-list li b {
+            color: #000;
+            font-weight: 800;
+        }
+
+        .settings-row-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: 12px;
+            border: 2px solid #ddd;
+            margin-bottom: 0.5rem;
+        }
+        .slider-input {
+            width: 60%;
+            accent-color: var(--t2-color);
+        }
+
+        /* --- 9. INTEGRATED TIMER CONTROLS --- */
+        .timer-setup-ui {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.8rem;
+            margin: 1rem 0;
+        }
+        .timer-digit-block {
+            text-align: center;
+        }
+        .timer-display-huge {
+            font-size: 3rem;
+            font-family: monospace;
+            font-weight: 900;
+            background: #f8f9fa;
+            padding: 0.3rem 1rem;
+            border-radius: 14px;
+            border: 3px solid var(--border-dark);
+            min-width: 150px;
+            text-align: center;
+        }
+        .timer-btn-circle {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 3px solid var(--border-dark);
+            color: black;
+            font-size: 1.2rem;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 3px 0 var(--border-dark);
+        }
+        .timer-btn-circle:active {
+            transform: translateY(3px);
+            box-shadow: 0 0px 0 var(--border-dark);
+        }
+
+        /* --- 10. ENHANCED SIDEBAR INTERACTIVE DICE --- */
+        .dice-container-sidebar {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            padding-top: 0.8rem;
+        }
+        .dice-element {
+            width: 160px; /* Enhanced, massive layout */
+            height: 160px;
+            background: #ffffff;
+            border: 5px solid var(--border-dark);
+            border-radius: 28px;
+            position: relative;
+            box-shadow: 0 10px 0px var(--border-dark);
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            padding: 16px;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.1s ease;
+        }
+        .dice-element:active {
+            transform: translateY(8px);
+            box-shadow: 0 2px 0px var(--border-dark);
+        }
+        .dice-dot {
+            background: #000000;
+            border-radius: 50%;
+            width: 24px; /* Scaled up dot graphics */
+            height: 24px;
+            justify-self: center;
+            align-self: center;
+            visibility: hidden;
+        }
+        
+        .mini-dice {
+            width: 44px;
+            height: 44px;
+            background: white;
+            border: 2px solid black;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            padding: 4px;
+            gap: 2px;
+        }
+        .mini-dot {
+            background: black;
+            border-radius: 50%;
+            width: 6px;
+            height: 6px;
+            justify-self: center;
+            align-self: center;
+        }
+
+        .dice-rolling-active {
+            animation: spinDice 0.4s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes spinDice {
+            0% { transform: rotate(0deg) scale(1.05); }
+            100% { transform: rotate(360deg) scale(1.05); }
+        }
+
+        /* --- 11. CELEBRATION EFFECTS / FLASH SCREENS --- */
+        .win-splash {
+            text-align: center;
+            padding: 1.5rem;
+        }
+        .win-title {
+            font-size: 2.8rem;
+            font-weight: 900;
+            margin-bottom: 1rem;
+            color: #ff70a6;
+            text-shadow: 2px 2px 0 #000;
+        }
+        .final-score-breakdown {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 1.5rem 0;
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+        #confetti-canvas {
+            position: absolute;
+            top:0; left:0; width:100%; height:100%;
+            pointer-events: none;
+            z-index: 150;
+        }
+
+        /* --- 13. RESPONSIVE CONTROLS --- */
+        @media (max-width: 768px) or (orientation: portrait) {
+            .game-wrapper {
+                flex-direction: column;
+                overflow-y: auto;
+            }
+            .side-panel {
+                flex: none;
+                max-width: 100%;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+                gap: 0.5rem;
+                align-items: center;
+            }
+            .dice-container-sidebar {
+                grid-column: span 2;
+                padding-top: 0;
+            }
+            .dice-element { width: 110px; height: 110px; padding: 10px; }
+            .dice-dot { width: 16px; height: 16px; }
+            .grid-container { max-width: 92vw; max-height: 92vw; }
+            .game-header { flex-direction: column; gap: 0.5rem; padding: 0.5rem; }
+            .scoreboard-container { width: 100%; }
+            .style-grid-cards { grid-template-columns: 1fr; gap: 0.8rem; }
+        }
+
+        .header-controls-badge {
+            background: #ffffff;
+            padding: 4px 12px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 800;
+            border: 2px solid var(--border-dark);
+        }
+    </style>
+</head>
+<body>
+
+    <audio id="bg-audio-engine" src="ES_Softy - Clarence Reed.mp3" loop></audio>
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <header class="game-header">
+        <div class="scoreboard-container">
+            <div class="team-card team-1 active" id="card-team1">
+                <div class="turn-indicator">Your Turn</div>
+                <div class="team-name" id="label-team1-name">Team Blue</div>
+                <div class="team-score" id="score-team1">0</div>
+            </div>
+            <div class="team-card team-2" id="card-team2">
+                <div class="turn-indicator">Your Turn</div>
+                <div class="team-name" id="label-team2-name">Team Red</div>
+                <div class="team-score" id="score-team2">0</div>
+            </div>
+        </div>
+
+        <div class="game-title-container">
+            <div class="game-title">Reading Roll Quest</div>
+            <div class="game-subtitle" id="game-subtitle-text">Roll the dice. Read the word. Connect three dots.</div>
+        </div>
+
+        <div class="header-controls">
+            <div class="header-controls-badge">Turns: <span id="display-turn-count">0</span></div>
+            <button class="action-btn" style="padding:0.4rem 0.8rem; font-size:0.8rem; margin-top:0.3rem;" onclick="toggleFullscreen()" title="Toggle Fullscreen">⛶ Fullscreen</button>
+        </div>
+    </header>
+
+    <div class="game-wrapper">
+        <main class="main-content">
+            <div class="grid-container" id="board-grid-matrix">
+                </div>
+        </main>
+
+        <aside class="side-panel">
+            <button class="action-btn" id="btn-view-timer" onclick="openModal('modal-timer')">
+                <span class="btn-icon">⏱️</span> Timer (<span id="sidebar-timer-text">01:00</span>)
+            </button>
+            <button class="action-btn" onclick="openModal('modal-settings')">
+                <span class="btn-icon">⚙️</span> Settings
+            </button>
+            <button class="action-btn" onclick="randomizeGridWords()">
+                <span class="btn-icon">🔀</span> Shuffle Words
+            </button>
+            <button class="action-btn" style="border-color: #ff4d6d;" onclick="resetWholeGame()">
+                <span class="btn-icon">🔄</span> Reset Game
+            </button>
+
+            <div class="dice-container-sidebar">
+                <div class="dice-element" id="hardware-dice-obj" onclick="executeDiceRollSequence()">
+                    <div class="dice-dot" id="dot-1"></div><div class="dice-dot" id="dot-2"></div><div class="dice-dot" id="dot-3"></div>
+                    <div class="dice-dot" id="dot-4"></div><div class="dice-dot" id="dot-5"></div><div class="dice-dot" id="dot-6"></div>
+                    <div class="dice-dot" id="dot-7"></div><div class="dice-dot" id="dot-8"></div><div class="dice-dot" id="dot-9"></div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div class="overlay-modal active" id="modal-board-select">
+        <div class="modal-content" style="max-width: 540px; text-align: center; padding: 2rem;">
+            <div class="win-title" style="font-size: 2.3rem; margin-bottom: 0.2rem;">Reading Roll Quest</div>
+            <p style="font-size:1.1rem; font-weight:800; color:#4a5568; margin-bottom: 0.5rem;">Select your preferred board gameplay style below:</p>
+            
+            <div class="style-grid-cards">
+                <div class="style-card-option" onclick="selectBoardStyleMode(1)">
+                    <div style="font-size: 2.8rem;">🕹️</div>
+                    <h3>Board Style 1</h3>
+                    <p><b>Classic Connect 3:</b> Block your opponent and connect three inline dots to score points!</p>
+                </div>
+                <div class="style-card-option" onclick="selectBoardStyleMode(2)">
+                    <div style="font-size: 2.8rem;">🏆</div>
+                    <h3>Board Style 2</h3>
+                    <p><b>Trophy Race:</b> Share grid spaces and race from left to right to hit the trophy peak first!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay-modal" id="modal-welcome-splash">
+        <div class="modal-content" style="max-width: 540px; text-align: center; padding: 2rem;">
+            <div class="win-title" style="font-size: 2.3rem; margin-bottom: 0.4rem;">How to Play 🎉</div>
+            <p style="font-size:1.2rem; font-weight:800; color:#4a5568;" id="welcome-mode-subtitle">Ready to practice your phonics skills?</p>
+            
+            <div class="welcome-rules-card">
+                <ul class="welcome-rules-list" id="welcome-rules-list-container">
+                    </ul>
+            </div>
+
+            <button class="action-btn" style="background: var(--neutral-glow); padding: 1rem; font-size:1.3rem; max-width:280px; margin: 0.5rem auto 0.2rem;" onclick="closeModal('modal-welcome-splash'); AudioController.init();">
+                Start Game 🎮
+            </button>
+        </div>
+    </div>
+
+    <div class="overlay-modal" id="modal-settings">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Game Settings</div>
+                <button class="close-modal" onclick="closeModal('modal-settings')">&times;</button>
+            </div>
+            
+            <div class="form-group">
+                <label>Custom Classroom Words (1 per line - 36 total)</label>
+                <textarea class="input-textarea" id="text-words-input" placeholder="Enter custom terms..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <button class="action-btn" style="background: #e2eafc;" onclick="applyInputWords()">✓ Update & Populate Grid</button>
+            </div>
+
+            <div class="form-group">
+                <label>Audio Management Control</label>
+                <div class="toggle-container">
+                    <span>Background Music</span>
+                    <input type="checkbox" id="check-audio-toggle" onchange="handleMusicToggle()" checked style="width:24px; height:24px;">
+                </div>
+                <div class="toggle-container">
+                    <span>Master Volume</span>
+                    <input type="range" class="slider-input" id="slider-volume" min="0" max="1" step="0.1" value="0.5" oninput="handleVolumeAdjustment()">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Game Data Preservation File System</label>
+                <div class="settings-row-buttons">
+                    <button class="action-btn" style="font-size:0.8rem; padding:0.5rem;" onclick="exportGameDataJSON()">📤 Export Data</button>
+                    <button class="action-btn" style="font-size:0.8rem; padding:0.5rem;" onclick="document.getElementById('file-loader-input').click()">📥 Load Data</button>
+                </div>
+                <input type="file" id="file-loader-input" style="display:none;" onchange="importGameDataJSON(event)">
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay-modal" id="modal-timer">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Classroom Timer Engine</div>
+                <button class="close-modal" onclick="closeModal('modal-timer')">&times;</button>
+            </div>
+
+            <div class="timer-setup-ui">
+                <button class="timer-btn-circle" onclick="adjustTimerSetting(-10)">-10</button>
+                <button class="timer-btn-circle" onclick="adjustTimerSetting(-1)">-1</button>
+                <div class="timer-digit-block">
+                    <div class="timer-display-huge" id="modal-timer-countdown">01:00</div>
+                </div>
+                <button class="timer-btn-circle" onclick="adjustTimerSetting(1)">+1</button>
+                <button class="timer-btn-circle" onclick="adjustTimerSetting(10)">+10</button>
+            </div>
+
+            <div class="settings-row-buttons" style="grid-template-columns: repeat(4, 1fr); gap: 4px;">
+                <button class="action-btn" style="padding: 0.5rem; font-size:0.8rem; background:#dbcdf0;" onclick="startTimerEngine()">Start</button>
+                <button class="action-btn" style="padding: 0.5rem; font-size:0.8rem; background:#f2c6de;" onclick="pauseTimerEngine()">Pause</button>
+                <button class="action-btn" style="padding: 0.5rem; font-size:0.8rem; background:#f7d6c8;" onclick="resumeTimerEngine()">Resume</button>
+                <button class="action-btn" style="padding: 0.5rem; font-size:0.8rem; background:#e2eafc;" onclick="resetTimerEngine()">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay-modal" id="modal-winner">
+        <div class="modal-content" style="text-align:center; max-width: 550px;">
+            <div class="win-splash">
+                <div class="win-title" id="txt-winner-team-name">TIME'S UP!</div>
+                <p style="color:#222; font-size:1.4rem; font-weight:800;">🏆 Final Scores 🏆</p>
+                
+                <div class="final-score-breakdown">
+                    <div style="color: var(--t1-color);">Team Blue: <span id="final-score-t1">0</span></div>
+                    <div style="color: var(--t2-color);">Team Red: <span id="final-score-t2">0</span></div>
+                </div>
+
+                <button class="action-btn" style="background:var(--neutral-glow); color:#000; margin:0 auto;" onclick="closeModal('modal-winner'); resetWholeGame();">Play Again 🎮</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. CORE STATE VARIABLES ---
+        let currentGameState = {
+            selectedStyleMode: 1, // 1 = Classic Matrix, 2 = Trophy Race
+            activeTeam: 1, 
+            scores: { team1: 0, team2: 0 },
+            turnCount: 0,
+            detectedLines: [], 
+            gridData: [], 
+            ownershipMatrix: Array(48).fill(null), 
+            board2Claims: Array(48).fill(null).map(() => ({ t1: false, t2: false })),
+            board2TrophyWinners: Array(6).fill(null),
+            defaultWords: [
+                "cat", "bat", "dad", "mad", "rat", "sat",
+                "hen", "pen", "vet", "net", "ten", "pet",
+                "kit", "sit", "wig", "pig", "wit", "zig",
+                "hot", "pot", "box", "fox", "pox", "jot",
+                "bug", "mug", "bun", "run", "sun", "jug",
+                "cap", "map", "tap", "nap", "zip", "lip"
+            ]
+        };
+
+        const miniDiceDotMaps = {
+            1: [5],
+            2: [1, 9],
+            3: [1, 5, 9],
+            4: [1, 3, 7, 9],
+            5: [1, 3, 5, 7, 9],
+            6: [1, 3, 4, 6, 7, 9]
+        };
+
+        // --- 2. BOARD ROUTINE SELECTION CONFIGURATORS ---
+        function selectBoardStyleMode(modeNum) {
+            currentGameState.selectedStyleMode = modeNum;
+            closeModal('modal-board-select');
+            
+            const subtitleText = document.getElementById('game-subtitle-text');
+            const rulesContainer = document.getElementById('welcome-rules-list-container');
+            const modeSubtitle = document.getElementById('welcome-mode-subtitle');
+
+            if (modeNum === 1) {
+                subtitleText.innerText = "Roll the dice. Read the word. Connect three dots.";
+                modeSubtitle.innerText = "Classic Connect-3 Edition";
+                rulesContainer.innerHTML = `
+                    <li><span>🎲</span> <div><b>1. Roll:</b> Click the big dice in the bottom-right corner.</div></li>
+                    <li><span>📖</span> <div><b>2. Read:</b> Find that row and read a word out loud!</div></li>
+                    <li><span>🎯</span> <div><b>3. Claim:</b> Click the box to claim it for your team.</div></li>
+                    <li><span>🏆</span> <div><b>4. Score:</b> Connect 3 boxes straight (Horizontal, Vertical, Diagonal) to score points!</div></li>
+                `;
+            } else {
+                subtitleText.innerText = "Race across the rows to reach the golden trophy!";
+                modeSubtitle.innerText = "Trophy Race Edition";
+                rulesContainer.innerHTML = `
+                    <li><span>🎲</span> <div><b>1. Roll:</b> Click the big dice to find your assigned row.</div></li>
+                    <li><span>🤝</span> <div><b>2. Share Spaces:</b> Both teams can claim the same box together!</div></li>
+                    <li><span>🏃‍♂️</span> <div><b>3. Race Sequence:</b> Read and claim words from left to right across the row.</div></li>
+                    <li><span>🏆</span> <div><b>4. Trophy Win:</b> Be the first team to finish the row and tap the Trophy to score!</div></li>
+                `;
+            }
+
+            bootstrapGameplayGrid();
+            openModal('modal-welcome-splash');
+        }
+
+        // --- 3. AUDIO CONTROLS ---
+        const AudioController = {
+            element: document.getElementById('bg-audio-engine'),
+            audioCtx: null,
+            init() {
+                this.element.volume = parseFloat(document.getElementById('slider-volume').value) || 0.5;
+                if(document.getElementById('check-audio-toggle').checked) {
+                    this.play();
+                }
+            },
+            play() {
+                this.element.play().catch(e => console.log("User interaction required for music engine playback."));
+            },
+            pause() {
+                this.element.pause();
+            },
+            setVolume(val) {
+                this.element.volume = val;
+            },
+            playDiceRollSFX() {
+                if (!document.getElementById('check-audio-toggle').checked) return;
+                try {
+                    if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    
+                    let duration = 0.4; 
+                    let masterVol = parseFloat(document.getElementById('slider-volume').value) || 0.5;
+                    
+                    // Rapid sound bursts simulating real bouncing dice
+                    for (let i = 0; i < 5; i++) {
+                        setTimeout(() => {
+                            let osc = this.audioCtx.createOscillator();
+                            let gain = this.audioCtx.createGain();
+                            
+                            osc.type = 'triangle';
+                            // Alternate pitching up to sound chaotic/rolling
+                            osc.frequency.setValueAtTime(150 + (i * 60), this.audioCtx.currentTime);
+                            
+                            gain.gain.setValueAtTime(masterVol * 0.4, this.audioCtx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.08);
+                            
+                            osc.connect(gain);
+                            gain.connect(this.audioCtx.destination);
+                            
+                            osc.start();
+                            osc.stop(this.audioCtx.currentTime + 0.08);
+                        }, i * 80);
+                    }
+                } catch(e) { console.log(e); }
+            },
+            playWinnerFanfare() {
+                if (!document.getElementById('check-audio-toggle').checked) return;
+                try {
+                    if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    let notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+                    let masterVol = parseFloat(document.getElementById('slider-volume').value) || 0.5;
+                    notes.forEach((freq, index) => {
+                        setTimeout(() => {
+                            let osc = this.audioCtx.createOscillator();
+                            let gain = this.audioCtx.createGain();
+                            osc.type = 'triangle';
+                            osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
+                            gain.gain.setValueAtTime(masterVol * 0.6, this.audioCtx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + 0.4);
+                            osc.connect(gain);
+                            gain.connect(this.audioCtx.destination);
+                            osc.start();
+                            osc.stop(this.audioCtx.currentTime + 0.4);
+                        }, index * 100);
+                    });
+                } catch(e) { console.log(e); }
+            }
+        };
+
+        function handleMusicToggle() {
+            if(document.getElementById('check-audio-toggle').checked) {
+                AudioController.play();
+            } else {
+                AudioController.pause();
+            }
+        }
+
+        function handleVolumeAdjustment() {
+            let val = parseFloat(document.getElementById('slider-volume').value);
+            AudioController.setVolume(val);
+        }
+
+        // --- 4. THE GENERATIVE MATRIX FACTORY ---
+        function bootstrapGameplayGrid() {
+            const gridContainer = document.getElementById('board-grid-matrix');
+            gridContainer.innerHTML = "";
+            
+            const isBoard2 = (currentGameState.selectedStyleMode === 2);
+            const totalColumns = isBoard2 ? 8 : 7;
+            const totalCells = 6 * totalColumns;
+
+            if (isBoard2) {
+                gridContainer.classList.add('mode-board2');
+            } else {
+                gridContainer.classList.remove('mode-board2');
+            }
+            
+            if (!currentGameState.gridData || currentGameState.gridData.length === 0) {
+                currentGameState.gridData = [...currentGameState.defaultWords];
+            }
+
+            document.getElementById('text-words-input').value = currentGameState.gridData.join("\n");
+
+            let wordPointer = 0;
+
+            for (let i = 0; i < totalCells; i++) {
+                const box = document.createElement('div');
+                box.classList.add('grid-box');
+                box.dataset.index = i;
+
+                let row = Math.floor(i / totalColumns);
+                let col = i % totalColumns;
+
+                // Column 0: Dice Header Row
+                if (col === 0) {
+                    box.classList.add('dice-header-column');
+                    let diceValue = row + 1;
+                    
+                    const miniDiceObj = document.createElement('div');
+                    miniDiceObj.classList.add('mini-dice');
+                    
+                    let targetDots = miniDiceDotMaps[diceValue] || [];
+                    for(let d=1; d<=9; d++) {
+                        const dot = document.createElement('div');
+                        if(targetDots.includes(d)) dot.classList.add('mini-dot');
+                        miniDiceObj.appendChild(dot);
+                    }
+                    box.appendChild(miniDiceObj);
+                } 
+                // Column 7: Trophy Column (Board 2 Specific)
+                else if (isBoard2 && col === 7) {
+                    box.classList.add('trophy-column-cell');
+                    box.innerHTML = `
+                        <svg class="trophy-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34M12 2a5 5 0 0 0-5 5v4c0 2.76 2.24 5 5 5s5-2.24 5-5V7a5 5 0 0 0-5-5z" fill="#ffb703" stroke="#000"/>
+                        </svg>
+                    `;
+
+                    if(currentGameState.board2TrophyWinners[row] === 1) box.classList.add('trophy-claimed-t1');
+                    if(currentGameState.board2TrophyWinners[row] === 2) box.classList.add('trophy-claimed-t2');
+
+                    box.addEventListener('click', () => handlingTrophySelection(row, i));
+                }
+                // Text/Word Interactive Cells
+                else {
+                    const t1Split = document.createElement('div');
+                    t1Split.classList.add('split-bg-t1');
+                    const t2Split = document.createElement('div');
+                    t2Split.classList.add('split-bg-t2');
+                    box.appendChild(t1Split);
+                    box.appendChild(t2Split);
+
+                    const textSpan = document.createElement('span');
+                    textSpan.classList.add('grid-box-text');
+                    textSpan.innerText = currentGameState.gridData[wordPointer] || "";
+                    box.appendChild(textSpan);
+                    wordPointer++;
+
+                    if (!isBoard2) {
+                        if(currentGameState.ownershipMatrix[i] === 1) box.classList.add('claimed-t1');
+                        if(currentGameState.ownershipMatrix[i] === 2) box.classList.add('claimed-t2');
+                    } else {
+                        if(currentGameState.board2Claims[i]?.t1) box.classList.add('has-t1');
+                        if(currentGameState.board2Claims[i]?.t2) box.classList.add('has-t2');
+                    }
+
+                    box.addEventListener('click', () => handlingGridBoxSelection(i, row, col));
+                }
+
+                gridContainer.appendChild(box);
+            }
+            synchronizeScoreboardVisuals();
+        }
+
+        // --- 5. SELECTION SECTORS ---
+        function handlingGridBoxSelection(index, row, col) {
+            const isBoard2 = (currentGameState.selectedStyleMode === 2);
+
+            if (!isBoard2) {
+                if(currentGameState.ownershipMatrix[index] !== null) return; 
+                currentGameState.ownershipMatrix[index] = currentGameState.activeTeam;
+                
+                const boxElement = document.querySelector(`.grid-box[data-index="${index}"]`);
+                if(currentGameState.activeTeam === 1) {
+                    boxElement.classList.add('claimed-t1');
+                } else {
+                    boxElement.classList.add('claimed-t2');
+                }
+
+                currentGameState.turnCount++;
+                evaluateScoringEngineMatrix();
+            } else {
+                if (!currentGameState.board2Claims[index]) {
+                    currentGameState.board2Claims[index] = { t1: false, t2: false };
+                }
+
+                if (currentGameState.activeTeam === 1) {
+                    if (currentGameState.board2Claims[index].t1) return;
+                    currentGameState.board2Claims[index].t1 = true;
+                } else {
+                    if (currentGameState.board2Claims[index].t2) return;
+                    currentGameState.board2Claims[index].t2 = true;
+                }
+
+                const boxElement = document.querySelector(`.grid-box[data-index="${index}"]`);
+                if(currentGameState.activeTeam === 1) boxElement.classList.add('has-t1');
+                if(currentGameState.activeTeam === 2) boxElement.classList.add('has-t2');
+
+                currentGameState.turnCount++;
+            }
+
+            currentGameState.activeTeam = currentGameState.activeTeam === 1 ? 2 : 1;
+            autoSaveStateToLocalStorage();
+            synchronizeScoreboardVisuals();
+        }
+
+        function handlingTrophySelection(row, cellIndex) {
+            if (currentGameState.selectedStyleMode !== 2) return;
+            if (currentGameState.board2TrophyWinners[row] !== null) return;
+
+            const totalColumns = 8;
+            let teamPassedRaceTrack = true;
+
+            for (let c = 1; c <= 6; c++) {
+                let targetIndex = row * totalColumns + c;
+                if (currentGameState.activeTeam === 1 && !currentGameState.board2Claims[targetIndex]?.t1) {
+                    teamPassedRaceTrack = false;
+                }
+                if (currentGameState.activeTeam === 2 && !currentGameState.board2Claims[targetIndex]?.t2) {
+                    teamPassedRaceTrack = false;
+                }
+            }
+
+            if (!teamPassedRaceTrack) {
+                alert("You must claim all words in this row from left to right first to unlock the trophy!");
+                return;
+            }
+
+            currentGameState.board2TrophyWinners[row] = currentGameState.activeTeam;
+            const trophyCell = document.querySelector(`.grid-box[data-index="${cellIndex}"]`);
+            
+            if (currentGameState.activeTeam === 1) {
+                currentGameState.scores.team1++;
+                trophyCell.classList.add('trophy-claimed-t1');
+            } else {
+                currentGameState.scores.team2++;
+                trophyCell.classList.add('trophy-claimed-t2');
+            }
+
+            triggerConfettiBurstSplash();
+            currentGameState.turnCount++;
+            currentGameState.activeTeam = currentGameState.activeTeam === 1 ? 2 : 1;
+            
+            autoSaveStateToLocalStorage();
+            synchronizeScoreboardVisuals();
+            checkForEndGameScenarios();
+        }
+
+        function synchronizeScoreboardVisuals() {
+            document.getElementById('score-team1').innerText = currentGameState.scores.team1;
+            document.getElementById('score-team2').innerText = currentGameState.scores.team2;
+            document.getElementById('display-turn-count').innerText = currentGameState.turnCount;
+
+            const t1Card = document.getElementById('card-team1');
+            const t2Card = document.getElementById('card-team2');
+
+            if(currentGameState.activeTeam === 1) {
+                t1Card.classList.add('active');
+                t2Card.classList.remove('active');
+            } else {
+                t2Card.classList.add('active');
+                t1Card.classList.remove('active');
+            }
+        }
+
+        // --- 6. SCORING MATRIX (BOARD 1 MODE ONLY) ---
+        function evaluateScoringEngineMatrix() {
+            let pointEarnedThisTurn = false;
+            
+            // Horizontal lines
+            for (let r = 0; r < 6; r++) {
+                for (let c = 0; c < 5; c++) {
+                    let idx1 = r * 7 + c;
+                    let idx2 = idx1 + 1;
+                    let idx3 = idx1 + 2;
+                    checkTrioLineCombo(idx1, idx2, idx3);
+                }
+            }
+
+            // Vertical lines
+            for (let c = 0; c < 7; c++) {
+                for (let r = 0; r < 4; r++) {
+                    let idx1 = r * 7 + c;
+                    let idx2 = idx1 + 7;
+                    let idx3 = idx2 + 7;
+                    checkTrioLineCombo(idx1, idx2, idx3);
+                }
+            }
+
+            // Diagonal down-right lines (\)
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 5; c++) {
+                    let idx1 = r * 7 + c;
+                    let idx2 = idx1 + 8; 
+                    let idx3 = idx1 + 16; 
+                    checkTrioLineCombo(idx1, idx2, idx3);
+                }
+            }
+
+            // Diagonal down-left lines (/)
+            for (let r = 0; r < 4; r++) {
+                for (let c = 2; c < 7; c++) {
+                    let idx1 = r * 7 + c;
+                    let idx2 = idx1 + 6; 
+                    let idx3 = idx1 + 12; 
+                    checkTrioLineCombo(idx1, idx2, idx3);
+                }
+            }
+
+            function checkTrioLineCombo(i1, i2, i3) {
+                if (i1 % 7 === 0 || i2 % 7 === 0 || i3 % 7 === 0) return;
+
+                let owner1 = currentGameState.ownershipMatrix[i1];
+                let owner2 = currentGameState.ownershipMatrix[i2];
+                let owner3 = currentGameState.ownershipMatrix[i3];
+
+                if (owner1 !== null && owner1 === owner2 && owner2 === owner3) {
+                    let lineHashId = `${i1}-${i2}-${i3}`;
+                    if (!currentGameState.detectedLines.includes(lineHashId)) {
+                        currentGameState.detectedLines.push(lineHashId);
+                        if(owner1 === 1) currentGameState.scores.team1++;
+                        if(owner1 === 2) currentGameState.scores.team2++;
+                        pointEarnedThisTurn = true;
+                    }
+                }
+            }
+
+            if (pointEarnedThisTurn) {
+                triggerConfettiBurstSplash();
+                checkForEndGameScenarios();
+            }
+        }
+
+        // --- 7. SHUFFLE, TEXT OVERRIDES, AND RESETS ---
+        function randomizeGridWords() {
+            for (let i = currentGameState.gridData.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [currentGameState.gridData[i], currentGameState.gridData[j]] = [currentGameState.gridData[j], currentGameState.gridData[i]];
+            }
+            bootstrapGameplayGrid();
+            autoSaveStateToLocalStorage();
+        }
+
+        function applyInputWords() {
+            const textRawInput = document.getElementById('text-words-input').value;
+            let cleanLines = textRawInput.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            
+            currentGameState.gridData = [];
+            for(let i=0; i<36; i++) {
+                currentGameState.gridData.push(cleanLines[i] || "");
+            }
+            
+            bootstrapGameplayGrid();
+            autoSaveStateToLocalStorage();
+            closeModal('modal-settings');
+        }
+
+        function resetWholeGame() {
+            if(!confirm("Are you sure you want to completely clear scores and restart the board?")) return;
+            currentGameState.scores = { team1: 0, team2: 0 };
+            currentGameState.turnCount = 0;
+            currentGameState.activeTeam = 1;
+            currentGameState.ownershipMatrix = Array(48).fill(null);
+            currentGameState.board2Claims = Array(48).fill(null).map(() => ({ t1: false, t2: false }));
+            currentGameState.board2TrophyWinners = Array(6).fill(null);
+            currentGameState.detectedLines = [];
+            localStorage.removeItem('arcade_phonics_save_6x7');
+            
+            document.getElementById('modal-board-select').classList.add('active');
+        }
+
+        function autoSaveStateToLocalStorage() {
+            localStorage.setItem('arcade_phonics_save_6x7', JSON.stringify(currentGameState));
+        }
+
+        // --- 8. MODALS ---
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+            if(id === 'modal-timer') renderTimerDisplayUI();
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        // --- 9. TIMERS ---
+        let TimerEngine = {
+            totalSeconds: 60,
+            intervalRef: null,
+            isRunning: false
+        };
+
+        function renderTimerDisplayUI() {
+            let mins = Math.floor(TimerEngine.totalSeconds / 60).toString().padStart(2, '0');
+            let secs = (TimerEngine.totalSeconds % 60).toString().padStart(2, '0');
+            let compoundStr = `${mins}:${secs}`;
+            
+            document.getElementById('modal-timer-countdown').innerText = compoundStr;
+            document.getElementById('sidebar-timer-text').innerText = compoundStr;
+        }
+
+        function adjustTimerSetting(deltaMinutes) {
+            TimerEngine.totalSeconds += (deltaMinutes * 60);
+            if(TimerEngine.totalSeconds < 0) TimerEngine.totalSeconds = 0;
+            renderTimerDisplayUI();
+        }
+
+        function startTimerEngine() {
+            if(TimerEngine.isRunning) return;
+            TimerEngine.isRunning = true;
+            TimerEngine.intervalRef = setInterval(() => {
+                if(TimerEngine.totalSeconds > 0) {
+                    TimerEngine.totalSeconds--;
+                    renderTimerDisplayUI();
+                } else {
+                    clearInterval(TimerEngine.intervalRef);
+                    TimerEngine.isRunning = false;
+                    executeTriggerGameOverSequence(); 
+                }
+            }, 1000);
+        }
+
+        function pauseTimerEngine() {
+            clearInterval(TimerEngine.intervalRef);
+            TimerEngine.isRunning = false;
+        }
+
+        function resumeTimerEngine() {
+            startTimerEngine();
+        }
+
+        function resetTimerEngine() {
+            clearInterval(TimerEngine.intervalRef);
+            TimerEngine.isRunning = false;
+            TimerEngine.totalSeconds = 60;
+            renderTimerDisplayUI();
+        }
+
+        function executeTriggerGameOverSequence() {
+            document.getElementById('final-score-t1').innerText = currentGameState.scores.team1;
+            document.getElementById('final-score-t2').innerText = currentGameState.scores.team2;
+            
+            let winnerTitle = "TIME'S UP!";
+            if (currentGameState.scores.team1 > currentGameState.scores.team2) {
+                winnerTitle = "BLUE TEAM WINS! 🏆";
+            } else if (currentGameState.scores.team2 > currentGameState.scores.team1) {
+                winnerTitle = "RED TEAM WINS! 🏆";
+            } else {
+                winnerTitle = "IT'S A TIE MATCH! 🤝";
+            }
+            document.getElementById('txt-winner-team-name').innerText = winnerTitle;
+            
+            openModal('modal-winner');
+            AudioController.playWinnerFanfare();
+            
+            setInterval(() => {
+                if(confettiArray.length < 150) {
+                    confettiArray.push(new ConfettiParticle());
+                }
+            }, 100);
+        }
+
+        // --- 10. EMBEDDED DICE SYSTEM ---
+        function executeDiceRollSequence() {
+            AudioController.playDiceRollSFX(); // Audio Trigger Hooked Here
+            const diceHardwareObj = document.getElementById('hardware-dice-obj');
+            diceHardwareObj.classList.add('dice-rolling-active');
+
+            setTimeout(() => {
+                diceHardwareObj.classList.remove('dice-rolling-active');
+                let pseudoRollResult = Math.floor(Math.random() * 6) + 1;
+                renderDiceFaceGraphicsDots(pseudoRollResult);
+            }, 800);
+        }
+
+        function renderDiceFaceGraphicsDots(value) {
+            const dots = document.querySelectorAll('.dice-container-sidebar .dice-dot');
+            dots.forEach(d => d.style.visibility = 'hidden');
+
+            let targets = miniDiceDotMaps[value] || [];
+            targets.forEach(tId => {
+                document.getElementById(`dot-${tId}`).style.setProperty('visibility', 'visible');
+            });
+        }
+
+        // --- 11. JSON DATA PORTABILITY ---
+        function exportGameDataJSON() {
+            let payloadDataString = JSON.stringify(currentGameState, null, 2);
+            let blob = new Blob([payloadDataString], {type: "application/json"});
+            let anchor = document.createElement('a');
+            anchor.download = "phonics_arcade_data.json";
+            anchor.href = URL.createObjectURL(blob);
+            anchor.click();
+        }
+
+        function importGameDataJSON(event) {
+            const uploadedFile = event.target.files[0];
+            if (!uploadedFile) return;
+
+            const readerInstance = new FileReader();
+            readerInstance.onload = function(e) {
+                try {
+                    let parsedMatrix = JSON.parse(e.target.result);
+                    if(parsedMatrix.gridData) {
+                        currentGameState = parsedMatrix;
+                        autoSaveStateToLocalStorage();
+                        bootstrapGameplayGrid();
+                        closeModal('modal-settings');
+                        alert("Game Data Loaded!");
+                    }
+                } catch(err) {
+                    alert("Error parsing input data file.");
+                }
+            };
+            readerInstance.readAsText(uploadedFile);
+        }
+
+        // --- 12. FULLSCREEN ---
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Fullscreen error: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function checkForEndGameScenarios() {
+            const isBoard2 = (currentGameState.selectedStyleMode === 2);
+            if (!isBoard2) {
+                let playableCellsOccupiedCount = 0;
+                for(let i=0; i<42; i++) {
+                    if(i % 7 !== 0 && currentGameState.ownershipMatrix[i] !== null) {
+                        playableCellsOccupiedCount++;
+                    }
+                }
+                if (playableCellsOccupiedCount === 36) {
+                    executeTriggerGameOverSequence();
+                }
+            } else {
+                let claimedTrophies = currentGameState.board2TrophyWinners.filter(w => w !== null).length;
+                if (claimedTrophies === 6) {
+                    executeTriggerGameOverSequence();
+                }
+            }
+        }
+
+        // --- 13. CONFETTI ANIMATOR ---
+        const canvas = document.getElementById("confetti-canvas");
+        const ctx = canvas.getContext("2d");
+        let confettiArray = [];
+
+        function resizeConfettiCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener("resize", resizeConfettiCanvas);
+        resizeConfettiCanvas();
+
+        class ConfettiParticle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height - canvas.height;
+                this.size = Math.random() * 8 + 6;
+                this.color = `hsl(${Math.random() * 360}, 100%, 60%)`;
+                this.speedY = Math.random() * 3 + 3;
+                this.speedX = Math.random() * 2 - 1;
+            }
+            update() {
+                this.y += this.speedY;
+                this.x += this.speedX;
+            }
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+            }
+        }
+
+        function triggerConfettiBurstSplash() {
+            for (let i = 0; i < 60; i++) {
+                confettiArray.push(new ConfettiParticle());
+            }
+        }
+
+        function renderLoopAnimationFrames() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            confettiArray.forEach((p, idx) => {
+                p.update();
+                p.draw();
+                if (p.y > canvas.height) confettiArray.splice(idx, 1);
+            });
+            requestAnimationFrame(renderLoopAnimationFrames);
+        }
+        renderLoopAnimationFrames();
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderDiceFaceGraphicsDots(1);
+        });
+    </script>
+</body>
+</html>
